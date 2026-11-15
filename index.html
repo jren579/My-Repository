@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Training">
+<meta name="theme-color" content="#0b6e69">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Training Chart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a bedside observation chart. Ruled paper, condensed numerals, yellow and red flag zones for anything out of range. */
+:root{
+  --paper:#eef2f0; --card:#ffffff; --ink:#13201e; --muted:#5a6966; --line:#d3dbd8;
+  --accent:#0b6e69; --accent-ink:#ffffff; --tint:#dff0ee;
+  --flag-y:#f3c63a; --flag-r:#d8452f; --good:#2c8a57; --zone-y:#fbefc4; --zone-r:#f8d6cf;
+  --display:"Archivo","Arial Narrow",Arial,sans-serif; --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0e1514; --card:#172120; --ink:#e4edeb; --muted:#93a4a0; --line:#2b3835;
+    --accent:#54c7be; --accent-ink:#052220; --tint:#17302e;
+    --flag-y:#e0b63a; --flag-r:#e2604c; --good:#55b982; --zone-y:#3a3317; --zone-r:#3f201b; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0e1514; --card:#172120; --ink:#e4edeb; --muted:#93a4a0; --line:#2b3835;
+  --accent:#54c7be; --accent-ink:#052220; --tint:#17302e;
+  --flag-y:#e0b63a; --flag-r:#e2604c; --good:#55b982; --zone-y:#3a3317; --zone-r:#3f201b; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--paper);color:var(--ink);font:400 15px/1.45 var(--body);-webkit-text-size-adjust:100%}
+#app{height:100%;display:flex;flex-direction:column;max-width:560px;margin:0 auto}
+header{padding:calc(14px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:2px solid var(--ink)}
+header h1{font:800 26px/1 var(--display);font-stretch:70%;text-transform:uppercase;letter-spacing:.01em;margin:0}
+header .sub{font:500 11px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+.pill{font:600 11px var(--mono);padding:4px 8px;border-radius:3px;border:1px solid var(--line);white-space:nowrap;text-transform:uppercase;letter-spacing:.04em}
+.pill.g{background:var(--tint);border-color:var(--accent);color:var(--accent)}
+.pill.y{background:var(--zone-y);border-color:var(--flag-y)}
+.pill.r{background:var(--zone-r);border-color:var(--flag-r)}
+main{flex:1;overflow-y:auto;padding:14px 16px 24px;display:flex;flex-direction:column;gap:14px}
+nav{padding-bottom:env(safe-area-inset-bottom);display:grid;grid-template-columns:repeat(5,1fr);border-top:2px solid var(--ink);background:var(--card)}
+nav a{padding:11px 2px 12px;text-align:center;text-decoration:none;color:var(--muted);font:700 12px var(--display);font-stretch:80%;text-transform:uppercase;letter-spacing:.05em;border-right:1px solid var(--line)}
+nav a:last-child{border-right:0}
+nav a.on{color:var(--accent-ink);background:var(--accent)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.card.rule{border-left:4px solid var(--accent)}
+h2{font:800 15px/1.1 var(--display);font-stretch:80%;text-transform:uppercase;letter-spacing:.05em;margin:0;text-wrap:balance}
+h3{font:600 13px var(--body);margin:0}
+p{margin:0}
+.muted{color:var(--muted)} .small{font-size:13px} .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.big{font:800 44px/0.9 var(--display);font-stretch:66%;font-variant-numeric:tabular-nums}
+.big small{font:500 12px var(--mono);color:var(--muted);margin-left:4px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.between{justify-content:space-between}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+label{display:flex;flex-direction:column;gap:3px;font:500 11px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.04em;min-width:0}
+input,select,textarea{font:500 16px var(--mono);color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:8px;width:100%;min-width:0}
+textarea{font-family:var(--body);resize:vertical;min-height:64px}
+input:focus,select:focus,textarea:focus,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{font:700 13px var(--display);font-stretch:85%;text-transform:uppercase;letter-spacing:.05em;padding:10px 14px;border-radius:3px;border:1px solid var(--ink);background:var(--card);color:var(--ink);cursor:pointer}
+button.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.ghost{border-color:var(--line);color:var(--muted)}
+button.sm{padding:6px 9px;font-size:11px}
+button:disabled{opacity:.5}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:7px 10px;border:1px solid var(--line);border-radius:3px;background:var(--paper);font:500 13px var(--mono);color:var(--ink);text-transform:none;letter-spacing:0}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.bar{height:10px;background:var(--paper);border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bar i.over{background:var(--flag-r)}
+.macro{display:flex;flex-direction:column;gap:4px}
+.macro .top{display:flex;justify-content:space-between;font:500 12px var(--mono)}
+.strip{position:relative;height:26px;border:1px solid var(--line);border-radius:2px;background:linear-gradient(90deg,var(--zone-r) 0 45%,var(--zone-y) 45% 70%,var(--card) 70% 100%)}
+.strip b{position:absolute;top:-4px;bottom:-4px;width:4px;background:var(--ink);border-radius:2px;transform:translateX(-2px)}
+.strip span{position:absolute;bottom:2px;font:500 9px var(--mono);color:var(--muted);text-transform:uppercase}
+.list{display:flex;flex-direction:column}
+.item{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line)}
+.item:last-child{border-bottom:0}
+.item .n{min-width:0;overflow-wrap:anywhere}
+.x{border:0;background:none;color:var(--muted);padding:4px 8px;font:500 16px var(--mono)}
+.sets{display:grid;grid-template-columns:22px 1fr 1fr 44px;gap:6px;align-items:center}
+.sets .h{font:500 10px var(--mono);color:var(--muted);text-transform:uppercase}
+.tick{padding:8px 0;border-color:var(--line);color:var(--muted)}
+.tick.on{background:var(--good);border-color:var(--good);color:#fff}
+.note{background:var(--tint);border-left:3px solid var(--accent);padding:8px 10px;font-size:13px;border-radius:2px}
+.warn{background:var(--zone-y);border-left:3px solid var(--flag-y);padding:8px 10px;font-size:13px;border-radius:2px}
+svg{display:block;width:100%;height:auto}
+.chart text{font:500 9px var(--mono);fill:var(--muted)}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.day{border:1px solid var(--line);border-radius:3px;padding:6px 2px;text-align:center;font:500 10px var(--mono);background:var(--paper);min-height:54px;display:flex;flex-direction:column;gap:3px;align-items:center}
+.day.now{border-color:var(--ink);border-width:2px}
+.day b{font:800 12px var(--display);font-stretch:80%;text-transform:uppercase}
+.tag{font:600 9px var(--mono);padding:1px 4px;border-radius:2px;background:var(--tint);color:var(--accent)}
+.tag.h{background:var(--zone-y);color:var(--ink)}
+#toast{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 14px;border-radius:3px;font:500 13px var(--body);opacity:0;pointer-events:none;transition:opacity .2s;max-width:90%}
+#toast.show{opacity:1}
+details summary{cursor:pointer;font-weight:600}
+ol,ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div><h1 id="title">Training Chart</h1><div class="sub" id="sub"></div></div>
+    <div class="pill" id="hpill">Loading</div>
+  </header>
+  <main id="main"><div class="card"><p class="muted">Loading your chart…</p></div></main>
+  <nav id="nav">
+    <a href="#today" data-t="today">Today</a><a href="#food" data-t="food">Food</a><a href="#train" data-t="train">Train</a><a href="#progress" data-t="progress">Trends</a><a href="#setup" data-t="setup">Setup</a>
+  </nav>
+</div>
+<div id="toast" role="status"></div>
+<script src="fflate.js"></script>
+<script>
+"use strict";
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const dstr=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const parseD=s=>{const a=s.split('-').map(Number);return new Date(a[0],a[1]-1,a[2])};
+const addD=(s,n)=>{const d=parseD(s);d.setDate(d.getDate()+n);return dstr(d)};
+const today=()=>dstr(new Date());
+const DOW=['sun','mon','tue','wed','thu','fri','sat'];
+const dow=s=>DOW[parseD(s).getDay()];
+const weekStart=s=>addD(s,-((parseD(s).getDay()+6)%7));
+const nice=s=>parseD(s).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
+const num=v=>{const n=parseFloat(v);return isFinite(n)?n:null};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const r1=v=>Math.round(v*10)/10;
+const clone=o=>JSON.parse(JSON.stringify(o));
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2600)}
+const hm=s=>{const a=String(s||'0:0').split(':').map(Number);return a[0]*60+(a[1]||0)};
+const toHM=m=>{m=((m%1440)+1440)%1440;return pad(Math.floor(m/60))+':'+pad(Math.round(m%60))};
+
+/* ---------- storage ---------- */
+const CORE0={profile:{sex:'',age:'',h:'',w:'',rate:0.5,act:1.55,maxHr:'',mins:45,start:'06:30',finish:'16:30',commute:28,inc:2.5,kadj:0},
+  plan:{mon:{ride:1},tue:{ride:1,gym:1},wed:{ride:1,hard:1},thu:{ride:1,gym:1},fri:{ride:1},sat:{gym:1},sun:{}},
+  favs:[],rot:0,active:null};
+let docs={core:clone(CORE0)};
+const Store={mode:'loading',col:null,timers:{},chain:{},
+  async init(){
+    this.mode='local';
+    try{const raw=localStorage.getItem('tc-docs');if(raw)docs=JSON.parse(raw)}catch(e){}
+    docs.core=Object.assign(clone(CORE0),docs.core||{});
+    docs.core.profile=Object.assign(clone(CORE0.profile),docs.core.profile||{});
+  },
+  save(id){
+    if(this.mode==='local'){try{localStorage.setItem('tc-docs',JSON.stringify(docs))}catch(e){toast('Phone storage is full. Download a backup from Setup.')}return}
+    clearTimeout(this.timers[id]);
+    this.timers[id]=setTimeout(()=>{
+      const body=clone(docs[id]);
+      this.chain[id]=(this.chain[id]||Promise.resolve()).then(()=>this.col.doc(id).set(body)).catch(e=>{
+        toast(e&&e.code==='quota_exceeded'?'Storage is full. Copy your data from Setup.':'Could not save just now. Your next change will retry.');
+      });
+    },700);
+  }
+};
+const core=()=>docs.core, P=()=>docs.core.profile;
+const saveCore=()=>Store.save('core');
+function dayDoc(date,make){const id='days-'+date.slice(0,7);if(!docs[id]){if(!make)return null;docs[id]={d:{}}}return docs[id]}
+function day(date,make){const dd=dayDoc(date,make);if(!dd)return null;if(!dd.d[date]){if(!make)return null;dd.d[date]={}}return dd.d[date]}
+const saveDay=date=>Store.save('days-'+date.slice(0,7));
+function health(date){const h=docs['health-'+date.slice(0,4)];return h&&h.d?h.d[date]||null:null}
+function sessions(){let out=[];Object.keys(docs).filter(k=>k.startsWith('sessions-')).sort().forEach(k=>{out=out.concat(docs[k].list||[])});return out}
+
+/* ---------- physiology ---------- */
+function metric(date,key){const d=day(date);const v=d&&d.check?num(d.check[key]):null;if(v!=null)return v;const h=health(date);return h&&h[key]!=null?h[key]:null}
+function baseline(date,key){const v=[];for(let i=1;i<=28;i++){const m=metric(addD(date,-i),key);if(m!=null)v.push(m)}return v.length>=5?v.reduce((a,b)=>a+b,0)/v.length:null}
+function readiness(date){
+  const parts=[];const add=(w,s)=>parts.push([w,clamp(s,0,1)]);
+  const sl=metric(date,'sleep');if(sl!=null)add(.3,(sl-4.5)/3);
+  const hv=metric(date,'hrv'),hb=baseline(date,'hrv');if(hv!=null&&hb)add(.2,(hv/hb-.8)/.2);
+  const rh=metric(date,'rhr'),rb=baseline(date,'rhr');if(rh!=null&&rb)add(.15,1-(rh-rb)/7);
+  const d=day(date),c=d&&d.check||{};
+  if(c.energy)add(.2,(c.energy-1)/4);
+  if(c.sore)add(.15,(5-c.sore)/4);
+  if(!parts.length)return null;
+  const tw=parts.reduce((a,p)=>a+p[0],0);
+  return Math.round(100*parts.reduce((a,p)=>a+p[0]*p[1],0)/tw);
+}
+const band=r=>r==null?'':r>=70?'g':r>=45?'y':'r';
+function weights(){const m={};Object.keys(docs).forEach(k=>{if(k.startsWith('health-')){const d=docs[k].d||{};for(const x in d)if(d[x].weight)m[x]=d[x].weight}});
+  Object.keys(docs).forEach(k=>{if(k.startsWith('days-')){const d=docs[k].d||{};for(const x in d){const w=num(d[x].weight);if(w)m[x]=w}}});
+  return Object.keys(m).sort().map(k=>({d:k,w:m[k]}))}
+function currentWeight(){const w=weights();return w.length?w[w.length-1].w:num(P().w)}
+function targets(){
+  const p=P(),w=currentWeight(),h=num(p.h),a=num(p.age);
+  if(!(w&&h&&a&&p.sex))return null;
+  const bmr=10*w+6.25*h-5*a+(p.sex==='m'?5:-161);
+  const tdee=bmr*(num(p.act)||1.55);
+  const def=Math.min(w*(num(p.rate)||0)/100*7700/7,.25*tdee);
+  const kcal=Math.round((tdee-def+(num(p.kadj)||0))/10)*10;
+  const pro=Math.round(2*w),fat=Math.round(.8*w);
+  return {bmr:Math.round(bmr),tdee:Math.round(tdee),def:Math.round(def),kcal,pro,fat,carb:Math.max(0,Math.round((kcal-pro*4-fat*9)/4))};
+}
+function weightTrend(){
+  const end=today(),pts=weights().filter(x=>x.d>=addD(end,-21));
+  if(pts.length<6)return null;
+  const xs=pts.map(p=>(parseD(p.d)-parseD(pts[0].d))/864e5),ys=pts.map(p=>p.w);
+  if(xs[xs.length-1]<10)return null;
+  const n=xs.length,mx=xs.reduce((a,b)=>a+b)/n,my=ys.reduce((a,b)=>a+b)/n;
+  let sxy=0,sxx=0;for(let i=0;i<n;i++){sxy+=(xs[i]-mx)*(ys[i]-my);sxx+=(xs[i]-mx)**2}
+  const slope=sxy/sxx;return {kgWk:slope*7,pctWk:slope*7/my*100};
+}
+function maxHr(){const p=P();return num(p.maxHr)||(num(p.age)?Math.round(208-.7*num(p.age)):null)}
+function foodTotals(date){const d=day(date);const t={kcal:0,p:0,c:0,f:0};(d&&d.food||[]).forEach(x=>{t.kcal+=+x.kcal||0;t.p+=+x.p||0;t.c+=+x.c||0;t.f+=+x.f||0});return t}
+const NOT_CARDIO=/Strength|Yoga|Pilates|Flexibility|Cooldown|MindAndBody|Core/;
+function cardioMin(date){const d=day(date);const man=(d&&d.cardio||[]).reduce((a,c)=>a+(+c.min||0),0);
+  const h=health(date);const imp=(h&&h.wo||[]).filter(w=>!NOT_CARDIO.test(w.t)).reduce((a,w)=>a+w.m,0);return Math.max(man,imp)}
+function weekCardio(ws){let t=0;for(let i=0;i<7;i++)t+=cardioMin(addD(ws,i));return Math.round(t)}
+
+/* ---------- training library ---------- */
+const X=(tag,m,alts,lo,hi,rest,w0,w1,note)=>({tag,m,alts,sets:3,lo,hi,rest,w0,w1,note,c:/1$/.test(tag)});
+const T={
+ A:{name:'Session A',focus:'Back and shoulders',ex:[
+  X('A1','back',['Weighted pull-up','Weighted chin-up','Lat pulldown'],5,8,'2–2.5 min',10,'10 kg added, 8/6/5','Weight is the load added to body weight.'),
+  X('A2a','delts',['Seated DB shoulder press','Machine shoulder press','Overhead press'],8,10,'none',22.9,'22.9'),
+  X('A2b','back',['Barbell row','Chest-supported row','Seated cable row'],8,10,'90 s',70,'60/70/70'),
+  X('A3a','delts',['Cable lateral raise','Dumbbell lateral raise','Machine lateral raise'],12,20,'none',7.5,'7.5 kg'),
+  X('A3b','core',['Hanging leg raise','Hanging knee raise','Ab wheel'],10,15,'60 s','','3 × 10')]},
+ B:{name:'Session B',focus:'Legs, traps and arms',ex:[
+  X('B1','hams',['Trap-bar deadlift','Romanian deadlift','Hip thrust'],5,8,'2.5 min',140,'120/140/140','Easing back in: build the load over your first 2 to 3 weeks.'),
+  X('B2a','quads',['Hack squat','Leg press','Bulgarian split squat'],8,10,'none',100,'80/100/100'),
+  X('B2b','traps',['Dumbbell incline shrug','Barbell shrug','Cable shrug'],8,12,'90 s',30,'30'),
+  X('B3a','arms',['EZ-bar curl','Incline dumbbell curl','Cable curl'],8,12,'none',25,'25'),
+  X('B3b','arms',['Rope pushdown','Overhead cable extension','Dips'],12,15,'60 s','','')]},
+ C:{name:'Session C',focus:'Chest, lats and abs',ex:[
+  X('C1','chest',['Bench press','Dumbbell bench press','Incline bench press'],5,8,'2–2.5 min','',''),
+  X('C2a','hams',['Romanian deadlift','45° back extension','Seated leg curl'],8,10,'none','',''),
+  X('C2b','back',['Lat pulldown','Neutral-grip pulldown','Pull-up'],10,12,'90 s','',''),
+  X('C3a','delts',['Lean-away lateral raise','Cable lateral raise','Reverse pec deck'],15,20,'none','',''),
+  X('C3b','core',['Weighted cable crunch','Hanging leg raise','Pallof press'],12,15,'60 s','','')]}
+};
+const ORDER=['A','B','C'];
+const MUSCLE={back:'Back',delts:'Shoulders',chest:'Chest',hams:'Hams and glutes',quads:'Quads',traps:'Traps',arms:'Arms',core:'Abs'};
+function lastPerf(name){const s=sessions();for(let i=s.length-1;i>=0;i--){const e=(s[i].ex||[]).find(x=>x.name===name);if(e&&e.sets.length)return e}return null}
+function genSession(key,mins,r,late){
+  const mode=(late||mins<=30||(r!=null&&r<45))?'min':(r!=null&&r<70)?'trim':'full';
+  const easy=mode!=='full';
+  let ex=T[key].ex.map((e,i)=>({key,slot:i,tag:e.tag,rest:e.rest,note:e.note||'',m:e.m,alt:0,name:e.alts[0],lo:e.lo,hi:e.hi,c:!!e.c,n:e.sets,rir:e.c?(easy?3:2):(easy?2:1)}));
+  if(mode==='min')ex=ex.slice(0,3);
+  if(mode==='trim')ex.forEach(e=>{if(!e.c)e.n=2});
+  if(mode==='full'&&mins>=55)ex.forEach(e=>{if(e.c)e.n+=1});
+  ex.forEach(e=>fillSets(e));
+    return {key,mode,date:today(),est:Math.round(5+ex.reduce((a,e)=>a+e.n*(e.c?3.2:2),0)),ex};
+}
+function fillSets(e){
+  const last=lastPerf(e.name),inc=num(P().inc)||2.5;const src=T[e.key].ex[e.slot]||{};let w=e.alt===0&&src.w0!==''&&src.w0!=null?src.w0:'';e.tip=(e.alt===0&&src.w1)?'Week 1 in your sheet: '+src.w1+'.':'First time: choose a load you could lift about '+(e.hi+2)+' times.';
+  if(last){const top=Math.max.apply(null,last.sets.map(s=>s.w||0));const ts=last.sets.filter(s=>(s.w||0)===top);
+    const txt=last.sets.map(s=>(s.w||0)+'×'+s.r).join(', ');
+    if(ts.length&&ts.every(s=>s.r>=e.hi)){w=top+inc;e.tip='Last time '+txt+'. You reached the top of the range, so go up to '+w+' kg.'}
+    else{w=top;e.tip='Last time '+txt+'. Stay at '+top+' kg and add a rep.'}}
+  e.sets=[];for(let i=0;i<e.n;i++)e.sets.push({w:w,r:'',done:0});
+}
+function e1rm(w,r){return w*(1+r/30)}
+function weekSets(ws){const out={};sessions().filter(s=>s.date>=ws&&s.date<addD(ws,7)).forEach(s=>s.ex.forEach(e=>{out[e.m]=(out[e.m]||0)+e.sets.length}));return out}
+
+/* ---------- charts ---------- */
+function lineChart(pts,o){
+  o=o||{};if(pts.length<2)return '<p class="muted small">'+esc(o.empty||'Not enough data yet.')+'</p>';
+  const W=320,H=o.h||120,L=30,R=34,Tp=8,B=16;
+  let ys=pts.map(p=>p.y),lo=Math.min.apply(null,ys),hi=Math.max.apply(null,ys);
+  if(o.zones)o.zones.forEach(z=>{if(z.show){lo=Math.min(lo,z.at);hi=Math.max(hi,z.at)}});
+  const padY=(hi-lo)*.15||1;lo-=padY;hi+=padY;
+  const X=i=>L+(W-L-R)*i/(pts.length-1),Y=v=>Tp+(H-Tp-B)*(1-(v-lo)/(hi-lo));
+  let s='<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(o.label||'chart')+'">';
+  (o.zones||[]).forEach(z=>{const y=clamp(Y(z.at),Tp,H-B);const top=z.below?y:Tp,ht=z.below?H-B-y:y-Tp;if(ht>0)s+='<rect x="'+L+'" y="'+top+'" width="'+(W-L-R)+'" height="'+ht+'" fill="var(--zone-'+z.c+')"/>'});
+  for(let g=0;g<3;g++){const v=lo+(hi-lo)*(g+.5)/3,y=Y(v);s+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" stroke="var(--line)" stroke-width="1"/><text x="'+(L-4)+'" y="'+(y+3)+'" text-anchor="end">'+(o.dp?v.toFixed(o.dp):Math.round(v))+'</text>'}
+  s+='<polyline fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" points="'+pts.map((p,i)=>X(i).toFixed(1)+','+Y(p.y).toFixed(1)).join(' ')+'"/>';
+  if(pts.length<=30)pts.forEach((p,i)=>{s+='<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(p.y).toFixed(1)+'" r="2" fill="var(--card)" stroke="var(--accent)" stroke-width="1.5"/>'});
+  const lp=pts[pts.length-1];
+  s+='<circle cx="'+X(pts.length-1)+'" cy="'+Y(lp.y)+'" r="4" fill="var(--accent)"/><text x="'+(W-R+7)+'" y="'+(Y(lp.y)+3)+'" style="font-weight:600;fill:var(--ink)">'+(o.dp?lp.y.toFixed(o.dp):Math.round(lp.y))+'</text>';
+  s+='<text x="'+L+'" y="'+(H-3)+'">'+esc(pts[0].x)+'</text><text x="'+(W-R)+'" y="'+(H-3)+'" text-anchor="end">'+esc(lp.x)+'</text></svg>';
+  return s;
+}
+function barChart(vals,labels,target){
+  const W=320,H=110,L=30,B=16,Tp=8;const mx=Math.max(target||0,Math.max.apply(null,vals),1)*1.1;
+  const bw=(W-L-6)/vals.length;let s='<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Weekly cardio minutes">';
+  [0,.5,1].forEach(f=>{const v=mx*f,y=Tp+(H-Tp-B)*(1-f);s+='<line x1="'+L+'" x2="'+W+'" y1="'+y+'" y2="'+y+'" stroke="var(--line)"/><text x="'+(L-4)+'" y="'+(y+3)+'" text-anchor="end">'+Math.round(v)+'</text>'});
+  vals.forEach((v,i)=>{const h=(H-Tp-B)*v/mx;s+='<rect x="'+(L+i*bw+3)+'" y="'+(H-B-h)+'" width="'+(bw-6)+'" height="'+h+'" fill="var(--accent)" opacity="'+(i===vals.length-1?1:.55)+'"/><text x="'+(L+i*bw+bw/2)+'" y="'+(H-3)+'" text-anchor="middle">'+esc(labels[i])+'</text>'});
+  if(target){const y=Tp+(H-Tp-B)*(1-target/mx);s+='<line x1="'+L+'" x2="'+W+'" y1="'+y+'" y2="'+y+'" stroke="var(--ink)" stroke-dasharray="4 3"/><text x="'+(W-2)+'" y="'+(y-3)+'" text-anchor="end" style="fill:var(--ink)">'+target+' min</text>'}
+  return s+'</svg>';
+}
+
+/* ---------- views ---------- */
+let tab='today',foodDate=today(),est=null,busy=false,canSample=false,canImg=false,importMsg='';
+const live={};
+function soft(){document.querySelectorAll('[data-live]').forEach(el=>{const f=live[el.dataset.live];if(f)el.innerHTML=f()});head()}
+function head(){
+  const r=readiness(today());const hp=$('#hpill');
+  hp.className='pill '+band(r);hp.textContent=r==null?'No check-in':'Ready '+r;
+  $('#sub').textContent=nice(today());
+}
+function macroBar(lbl,v,t,unit){const pct=t?clamp(v/t*100,0,100):0;return '<div class="macro"><div class="top"><span>'+lbl+'</span><span>'+Math.round(v)+(t?' / '+t:'')+' '+unit+'</span></div><div class="bar"><i class="'+(t&&v>t*1.08?'over':'')+'" style="width:'+pct+'%"></i></div></div>'}
+
+live.ready=function(){
+  const d=today(),r=readiness(d);
+  if(r==null)return '<p class="muted small">Enter last night\'s sleep or how you feel and the score appears here.</p>';
+  const msg=r>=70?'Clear. Train as planned.':r>=45?'Yellow zone. Trim the session and stop further from failure.':'Red zone. Minimum dose or an easy spin, and protect tonight\'s sleep.';
+  let h='<div class="row between"><div class="big">'+r+'<small>/ 100</small></div><p class="small" style="flex:1;min-width:150px">'+msg+'</p></div>';
+  h+='<div class="strip" aria-hidden="true"><b style="left:'+r+'%"></b><span style="left:4px">Red</span><span style="left:47%">Yellow</span><span style="right:4px">Clear</span></div>';
+  const hb=baseline(d,'hrv'),rb=baseline(d,'rhr');
+  if(hb||rb)h+='<p class="muted small mono">28-day baseline: '+(hb?'HRV '+Math.round(hb)+' ms ':'')+(rb?'· resting HR '+Math.round(rb)+' bpm':'')+'</p>';
+  return h;
+};
+live.fuel=function(){
+  const t=targets(),f=foodTotals(today());
+  if(!t)return '<p class="muted small">Add your details in the card above to set calorie and protein targets.</p>'+macroBar('Energy',f.kcal,0,'kcal');
+  const left=t.kcal-f.kcal;
+  return '<div class="row between"><div class="big">'+Math.abs(Math.round(left))+'<small>kcal '+(left>=0?'left':'over')+'</small></div><div class="mono small muted">target '+t.kcal+'<br>protein '+t.pro+' g</div></div>'+macroBar('Protein',f.p,t.pro,'g')+macroBar('Energy',f.kcal,t.kcal,'kcal');
+};
+live.plan=function(){
+  const d=today(),pl=core().plan[dow(d)]||{},r=readiness(d),c=(day(d)||{}).check||{},mh=maxHr(),p=P();
+  const key=ORDER[core().rot%3],lines=[];
+  const done=sessions().some(s=>s.date===d);
+  if(core().active)lines.push('<div class="note">Workout in progress: '+T[core().active.key].name+'.</div>');
+  else if(done)lines.push('<div class="note">Gym session logged today. Eat your protein and get to bed on time.</div>');
+  else if(pl.gym){
+    const g=genSession(key,num(p.mins)||45,r,c.late);
+    const why=c.late?'Late finish, so this is your short version: the first lift and the first superset. It is enough to hold strength.':g.mode==='min'?'Readiness is low, so do the first lift and first superset at an easy effort. Skipping is fine too; the rotation keeps your place.':g.mode==='trim'?'Readiness is middling. Keep the first lift heavy, drop a set from each superset and stop about 3 reps from failure.':'Full session. Keep the first lift heavy and stop most sets 1 to 2 reps short.';
+    lines.push('<h3>'+T[key].name+' ('+T[key].focus+') · about '+g.est+' min after work</h3><p class="small">'+why+'</p>');
+  } else lines.push('<p class="small">No gym planned today.</p>');
+  if(pl.ride){
+    if(pl.hard&&(r==null||r>=70))lines.push('<p class="small"><b>Ride home hard:</b> 4 × 4 min at '+(mh?Math.round(mh*.85)+'–'+Math.round(mh*.95)+' bpm':'a pace where you cannot talk')+', 3 min easy between, on a stretch without lights. Ride in easy.</p>');
+    else lines.push('<p class="small"><b>Commute rides easy</b>'+(pl.hard?' (intervals shelved, readiness is not clear)':'')+': '+(mh?'keep heart rate under '+Math.round(mh*.75)+' bpm':'a pace where you can hold a conversation')+'. Two legs give you '+(2*(num(p.commute)||28))+' min of base work.</p>');
+  }
+  if(!pl.ride&&!pl.gym)lines.push('<p class="small">Rest day. A walk is plenty.</p>');
+  const wake=hm(p.start)-(num(p.commute)||28)-45,bed=wake-465;
+  lines.push('<p class="muted small mono">Tomorrow: up '+toHM(wake)+' · lights out '+toHM(bed)+' · last coffee '+toHM(bed-480)+'</p>');
+  return lines.join('');
+};
+function vToday(){
+  const d=today(),dd=day(d)||{},c=dd.check||{},p=P();let h='';
+  if(!targets())h+='<div class="card rule"><h2>Set your numbers</h2><p class="small muted">Needed once, for energy and protein targets and heart-rate zones.</p>'+profileFields()+'</div>';
+  h+='<div class="card"><div class="row between"><h2>Morning obs</h2><span class="muted small mono">20 seconds</span></div><div data-live="ready"></div>'+
+   '<div class="grid4"><label>Sleep h<input id="ci-sleep" inputmode="decimal" data-chg="check" data-k="sleep" value="'+esc(c.sleep!=null?c.sleep:(metric(d,'sleep')!=null?r1(metric(d,'sleep')):''))+'"></label>'+
+   '<label>Rest HR<input id="ci-rhr" inputmode="numeric" data-chg="check" data-k="rhr" value="'+esc(c.rhr!=null?c.rhr:'')+'"></label>'+
+   '<label>HRV ms<input id="ci-hrv" inputmode="numeric" data-chg="check" data-k="hrv" value="'+esc(c.hrv!=null?c.hrv:'')+'"></label>'+
+   '<label>Weight kg<input id="ci-w" inputmode="decimal" data-chg="weight" value="'+esc(dd.weight||'')+'"></label></div>'+
+   '<div><label>Energy</label><div class="chips">'+[1,2,3,4,5].map(n=>'<button class="chip'+(c.energy===n?' on':'')+'" data-act="scale" data-k="energy" data-v="'+n+'">'+n+'</button>').join('')+'<span class="muted small" style="align-self:center">1 flat · 5 great</span></div></div>'+
+   '<div><label>Soreness</label><div class="chips">'+[1,2,3,4,5].map(n=>'<button class="chip'+(c.sore===n?' on':'')+'" data-act="scale" data-k="sore" data-v="'+n+'">'+n+'</button>').join('')+'<span class="muted small" style="align-self:center">1 none · 5 very</span></div></div>'+
+   '<button class="chip'+(c.late?' on':'')+'" data-act="late" style="align-self:flex-start">'+(c.late?'Finishing late today ✓':'Finishing late today?')+'</button></div>';
+  h+='<div class="card rule"><h2>Today\'s orders</h2><div data-live="plan" style="display:flex;flex-direction:column;gap:8px"></div><div class="row"><a href="#train"><button class="pri">'+(core().active?'Resume workout':'Open training')+'</button></a><button data-act="ride" data-v="in">Rode in</button><button data-act="ride" data-v="home">Rode home</button></div></div>';
+  h+='<div class="card"><div class="row between"><h2>Fuel</h2><a href="#food"><button class="sm">Log food</button></a></div><div data-live="fuel" style="display:flex;flex-direction:column;gap:8px"></div></div>';
+  h+='<div class="card"><h2>This week</h2>'+weekStrip()+'</div>';
+  return h;
+}
+function weekStrip(){
+  const ws=weekStart(today());let h='<div class="days">';
+  for(let i=0;i<7;i++){const d=addD(ws,i),pl=core().plan[dow(d)]||{};const did=sessions().some(s=>s.date===d),cm=cardioMin(d);
+    h+='<div class="day'+(d===today()?' now':'')+'"><b>'+dow(d)+'</b>'+(pl.gym?'<span class="tag">'+(did?'Gym ✓':'Gym')+'</span>':(did?'<span class="tag">Gym ✓</span>':''))+(pl.ride?'<span class="tag'+(pl.hard?' h':'')+'">'+(pl.hard?'4×4':'Ride')+'</span>':'')+(cm?'<span class="mono">'+Math.round(cm)+'m</span>':'')+'</div>'}
+  const wc=weekCardio(ws),n=sessions().filter(s=>s.date>=ws&&s.date<addD(ws,7)).length;
+  return h+'</div><p class="muted small mono">'+n+' gym session'+(n===1?'':'s')+' · '+wc+' of 150 cardio min</p>';
+}
+function profileFields(){
+  const p=P();
+  return '<div class="grid4"><label>Sex<select id="pf-sex" data-chg="prof" data-k="sex"><option value=""></option><option value="m"'+(p.sex==='m'?' selected':'')+'>Male</option><option value="f"'+(p.sex==='f'?' selected':'')+'>Female</option></select></label>'+
+  '<label>Age<input id="pf-age" inputmode="numeric" data-chg="prof" data-k="age" value="'+esc(p.age)+'"></label>'+
+  '<label>Height cm<input id="pf-h" inputmode="decimal" data-chg="prof" data-k="h" value="'+esc(p.h)+'"></label>'+
+  '<label>Weight kg<input id="pf-w" inputmode="decimal" data-chg="prof" data-k="w" value="'+esc(p.w)+'"></label></div><button class="pri" data-act="rerender" style="align-self:flex-start">Save</button>';
+}
+
+const FOODS=[["Egg, 1 large",72,6.3,0.4,4.8],["Chicken breast, cooked 150 g",248,46,0,5.4],["Chicken thigh, cooked 150 g",300,37,0,16],["Lean beef mince, cooked 150 g",320,39,0,18],["Sirloin steak, cooked 200 g",400,54,0,20],["Salmon fillet, cooked 150 g",310,33,0,19],["Tuna in springwater, 95 g can",100,22,0,1],["Firm tofu, 150 g",190,20,3,11],["Lentils, cooked 1 cup",230,18,40,0.8],["Baked beans, 220 g can",200,10,30,1],["White rice, cooked 1 cup",205,4.3,45,0.4],["Brown rice, cooked 1 cup",215,5,45,1.8],["Pasta, cooked 1 cup",220,8,43,1.3],["Rolled oats, 50 g dry",190,6.5,30,4],["Weet-Bix, 2 biscuits",107,3.7,20,0.4],["Wholemeal bread, 1 slice",80,4,13,1],["Sourdough, 1 slice",110,4,21,0.7],["Wrap, 1",150,4.5,24,3.5],["Potato, boiled 200 g",170,4,39,0.2],["Sweet potato, 200 g",180,4,41,0.3],["Mixed vegetables, 1 cup",80,4,13,0.5],["Salad greens, bowl",25,2,4,0.3],["Avocado, half",160,2,8.5,14.7],["Banana, medium",105,1.3,27,0.4],["Apple, medium",95,0.5,25,0.3],["Berries, 1 cup",70,1,17,0.5],["Full cream milk, 250 ml",160,8.5,12,8.8],["Skim milk, 250 ml",88,9,12.5,0.3],["Greek yoghurt, 170 g",165,15,7,8],["High-protein yoghurt, 160 g",95,15,6,0.5],["Cottage cheese, 100 g",95,12,3,4],["Cheddar, 30 g",120,7.5,0.3,10],["Whey protein, 1 scoop",120,24,3,1.5],["Protein bar, 60 g",220,20,20,8],["Muesli bar",130,2.5,20,4.5],["Almonds, 30 g",175,6,6,15],["Peanut butter, 1 tbsp",120,5,3,10],["Hummus, 2 tbsp",70,2,4,5],["Olive oil, 1 tbsp",120,0,0,13.5],["Butter, 10 g",72,0.1,0,8.1],["Dark chocolate, 25 g",150,2,9,11],["Flat white, full cream",120,6.5,9,6.5],["Skim latte",90,9,13,0.3],["Long black",3,0.3,0,0],["Beer, 375 ml",140,1.2,11,0],["Wine, 150 ml",120,0.1,4,0],["Chicken salad sandwich",420,28,40,15],["Cafeteria hot meal (meat, rice, veg)",650,35,70,22],["Sushi hand roll, 1",180,6,32,2.5],["Salmon poke bowl",600,32,70,20],["Chicken burrito bowl",650,40,70,22],["Pork banh mi",520,24,60,18],["Pad thai, takeaway",800,30,95,30],["Chicken schnitzel, 200 g",500,40,30,24],["Burger with chips",1000,40,95,50],["Pizza, 2 slices",560,24,66,22],["Meat pie",450,13,35,28]];
+function foodHits(q){q=q.trim().toLowerCase();const l=q?FOODS.filter(f=>f[0].toLowerCase().includes(q)):FOODS.slice(0,8);return l.length?l.slice(0,12).map(f=>'<button class="chip" data-act="quick" data-i="'+FOODS.indexOf(f)+'">'+esc(f[0])+' · '+f[1]+'</button>').join(''):'<span class="muted small">No match. Add it by numbers below.</span>'}
+live.foodsum=function(){
+  const t=targets(),f=foodTotals(foodDate);
+  return macroBar('Energy',f.kcal,t&&t.kcal,'kcal')+macroBar('Protein',f.p,t&&t.pro,'g')+macroBar('Carbs',f.c,t&&t.carb,'g')+macroBar('Fat',f.f,t&&t.fat,'g');
+};
+function vFood(){
+  const dd=day(foodDate)||{},list=dd.food||[];
+  let h='<div class="card"><div class="row between"><button class="sm" data-act="fday" data-v="-1" aria-label="Previous day">◀</button><h2>'+(foodDate===today()?'Today':nice(foodDate))+'</h2><button class="sm" data-act="fday" data-v="1" aria-label="Next day"'+(foodDate>=today()?' disabled':'')+'>▶</button></div><div data-live="foodsum" style="display:flex;flex-direction:column;gap:8px"></div></div>';
+  if(canSample){
+    h+='<div class="card rule"><h2>Describe it</h2><textarea id="fd-text" placeholder="e.g. chicken katsu curry from the cafeteria, flat white, banana"></textarea><div class="row"><button class="pri" data-act="estimate"'+(busy?' disabled':'')+'>'+(busy?'Estimating…':'Estimate and add')+'</button>'+(canImg?'<label style="flex-direction:row;align-items:center;gap:6px"><input id="fd-photo" type="file" accept="image/*" data-chg="photo" style="display:none"><span class="chip" role="button">Use a photo</span></label>':'')+'</div><p class="muted small">Claude estimates energy and macros. Treat them as estimates and edit any line.</p></div>';
+  }
+  h+='<div class="card rule"><h2>Quick add</h2><div class="row" style="flex-wrap:nowrap"><input id="fq" placeholder="Search foods" autocomplete="off"><select id="fqn" style="width:90px" aria-label="Serves"><option value="0.5">½ ×</option><option value="1" selected>1 ×</option><option value="1.5">1½ ×</option><option value="2">2 ×</option></select></div><div class="chips" id="fq-hits">'+foodHits('')+'</div><p class="muted small">Typical values per serve in kcal. Star anything you eat often to keep it under Regulars.</p></div>';
+  h+='<div class="card"><h2>Add by numbers</h2><label>Food<input id="fm-name" placeholder="Name"></label><div class="grid4"><label>kcal<input id="fm-kcal" inputmode="numeric"></label><label>Protein<input id="fm-p" inputmode="decimal"></label><label>Carbs<input id="fm-c" inputmode="decimal"></label><label>Fat<input id="fm-f" inputmode="decimal"></label></div><button data-act="addfood" style="align-self:flex-start">Add</button></div>';
+  if(core().favs.length)h+='<div class="card"><h2>Regulars</h2><div class="chips">'+core().favs.map((f,i)=>'<button class="chip" data-act="fav" data-i="'+i+'">'+esc(f.name)+' · '+Math.round(f.kcal)+'</button>').join('')+'</div></div>';
+  h+='<div class="card"><h2>Logged</h2>'+(list.length?'<div class="list">'+list.map((f,i)=>'<div class="item"><div class="n"><div>'+esc(f.name)+'</div><div class="mono small muted">'+Math.round(f.kcal)+' kcal · P'+r1(+f.p||0)+' C'+r1(+f.c||0)+' F'+r1(+f.f||0)+'</div></div><div class="row" style="flex-wrap:nowrap;gap:0"><button class="x" data-act="star" data-i="'+i+'" aria-label="Save as regular">☆</button><button class="x" data-act="delfood" data-i="'+i+'" aria-label="Delete">×</button></div></div>').join('')+'</div>':'<p class="muted small">Nothing logged for this day.</p>')+'</div>';
+  return h;
+}
+
+function vTrain(){
+  const a=core().active,p=P(),mh=maxHr();let h='';
+  if(a){
+    h+='<div class="card rule"><div class="row between"><h2>'+T[a.key].name+'</h2><span class="pill">'+(a.mode==='full'?'Full':a.mode==='trim'?'Trimmed':'Minimum dose')+'</span></div><p class="small muted">'+T[a.key].focus+'. Five-minute warm-up first. Lifts sharing a number (2a and 2b) are a superset: one set of each back to back, then rest.</p></div>';
+    a.ex.forEach((e,i)=>{
+      h+='<div class="card"><div class="row between"><h3><span class="tag">'+esc(e.tag)+'</span> '+esc(e.name)+'</h3><button class="sm ghost" data-act="swap" data-i="'+i+'">Swap</button></div><p class="mono small">'+e.n+' × '+e.lo+'–'+e.hi+' · stop '+e.rir+' rep'+(e.rir===1?'':'s')+' short · rest '+esc(e.rest)+'</p><p class="small muted">'+esc(e.tip)+(e.note?' '+esc(e.note):'')+'</p><div class="sets"><span class="h">#</span><span class="h">kg</span><span class="h">reps</span><span class="h">done</span>'+
+      e.sets.map((s,j)=>'<span class="mono">'+(j+1)+'</span><input id="s-'+i+'-'+j+'-w" inputmode="decimal" data-chg="set" data-e="'+i+'" data-s="'+j+'" data-f="w" value="'+esc(s.w)+'"><input id="s-'+i+'-'+j+'-r" inputmode="numeric" data-chg="set" data-e="'+i+'" data-s="'+j+'" data-f="r" value="'+esc(s.r)+'" placeholder="'+e.lo+'–'+e.hi+'"><button class="tick'+(s.done?' on':'')+'" data-act="tick" data-e="'+i+'" data-s="'+j+'" aria-label="Set done">✓</button>').join('')+
+      '</div><button class="sm ghost" data-act="addset" data-i="'+i+'" style="align-self:flex-start">+ set</button></div>';
+    });
+    h+='<div class="row"><button class="pri" data-act="finish">Finish and save</button><button class="ghost" data-act="cancel">Discard</button></div>';
+    return h;
+  }
+  const key=ORDER[core().rot%3],r=readiness(today()),c=(day(today())||{}).check||{},g=genSession(key,num(p.mins)||45,r,c.late);
+  h+='<div class="card rule"><div class="row between"><h2>Next: '+T[key].name+'</h2><span class="pill '+band(r)+'">'+(g.mode==='full'?'Full':g.mode==='trim'?'Trimmed':'Minimum dose')+'</span></div><p class="small muted">'+T[key].focus+' · about '+g.est+' min · built from today\'s readiness'+(r==null?' (no check-in, so full session)':'')+'</p><div class="list">'+g.ex.map(e=>'<div class="item"><span class="n"><span class="tag">'+esc(e.tag)+'</span> '+esc(e.name)+'</span><span class="mono small">'+e.n+' × '+e.lo+'–'+e.hi+'</span></div>').join('')+'</div>'+
+   '<div class="row"><label style="flex:1">Time available<select id="tr-mins" data-chg="mins">'+[[30,'30 min'],[45,'45 min'],[55,'55 min']].map(o=>'<option value="'+o[0]+'"'+((num(p.mins)||45)===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></label><button class="pri" data-act="start" style="align-self:flex-end">Start</button></div><button class="sm ghost" data-act="skip" style="align-self:flex-start">Do a different session instead</button></div>';
+  h+='<div class="card"><h2>Cardio</h2><div class="row"><button data-act="ride" data-v="in">Rode in</button><button data-act="ride" data-v="home">Rode home</button></div><div class="grid3"><label>Type<select id="cd-type"><option>Ride</option><option>Intervals</option><option>Walk</option><option>Other</option></select></label><label>Minutes<input id="cd-min" inputmode="numeric"></label><label>Avg HR<input id="cd-hr" inputmode="numeric"></label></div><button data-act="addcardio" style="align-self:flex-start">Log cardio</button>'+
+   (mh?'<div class="list"><div class="item"><span>Easy base (zone 2)</span><span class="mono">'+Math.round(mh*.6)+'–'+Math.round(mh*.75)+' bpm</span></div><div class="item"><span>4 × 4 intervals</span><span class="mono">'+Math.round(mh*.85)+'–'+Math.round(mh*.95)+' bpm</span></div></div><p class="muted small">From an estimated max of '+mh+' bpm. Enter a measured max in Setup if you have one.</p>':'<p class="muted small">Add your age in Setup for heart-rate zones.</p>')+'</div>';
+  const rec=sessions().slice(-6).reverse();
+  h+='<div class="card"><h2>Recent sessions</h2>'+(rec.length?'<div class="list">'+rec.map(s=>'<div class="item"><div class="n"><div>'+T[s.key].name+' · '+T[s.key].focus+'</div><div class="mono small muted">'+nice(s.date)+' · '+s.ex.reduce((a,e)=>a+e.sets.length,0)+' sets</div></div></div>').join('')+'</div>':'<p class="muted small">Your first logged session shows here.</p>')+'</div>';
+  return h;
+}
+
+let exPick='';
+function vProgress(){
+  let h='';const end=today();
+  const w=weights().filter(x=>x.d>=addD(end,-90)),tr=weightTrend(),goal=num(P().rate)||.5;
+  h+='<div class="card"><h2>Body weight</h2>'+lineChart(w.map(x=>({x:x.d.slice(5),y:x.w})),{dp:1,label:'Body weight',empty:'Log your weight on a few mornings to see the trend.'});
+  if(tr){const pc=-tr.pctWk;h+='<p class="small mono">'+(tr.kgWk<=0?'Losing ':'Gaining ')+Math.abs(tr.kgWk).toFixed(2)+' kg a week ('+Math.abs(tr.pctWk).toFixed(2)+'%). Target '+goal+'%.</p>';
+    if(pc>1)h+='<div class="warn">Faster than 1% a week puts muscle and recovery at risk. <button class="sm" data-act="kadj" data-v="150">Add 150 kcal</button></div>';
+    else if(pc<goal*.4)h+='<div class="note">Slower than planned over three weeks. <button class="sm" data-act="kadj" data-v="-100">Trim 100 kcal</button></div>';
+    else h+='<div class="note">On pace. Leave the targets alone.</div>'}
+  h+='</div>';
+  const ws=weekStart(end),sets=weekSets(ws);
+  h+='<div class="card"><h2>Sets this week</h2><div class="list">'+Object.keys(MUSCLE).map(m=>'<div class="item"><span>'+MUSCLE[m]+'</span><span class="mono">'+(sets[m]||0)+'</span></div>').join('')+'</div><p class="muted small">A full A, B, C rotation gives back and shoulders 9 sets, arms and abs 6, and chest and quads 3 each. If chest or quads lag, that is the first place to add a set.</p></div>';
+  const names={};sessions().forEach(s=>s.ex.forEach(e=>{names[e.name]=1}));const nl=Object.keys(names).sort();
+  if(!names[exPick])exPick=nl[0]||'';
+  const pts=[];sessions().forEach(s=>s.ex.forEach(e=>{if(e.name===exPick){const b=Math.max.apply(null,e.sets.map(x=>e1rm(x.w||0,x.r||0)));if(b>0)pts.push({x:s.date.slice(5),y:b})}}));
+  h+='<div class="card"><h2>Strength</h2>'+(nl.length?'<select id="ex-pick" data-chg="expick">'+nl.map(n=>'<option'+(n===exPick?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select>'+lineChart(pts,{dp:1,label:'Estimated one-rep max',empty:'Two sessions of this lift draw a line.'})+'<p class="muted small">Estimated one-rep max in kg from your best set (Epley).</p>':'<p class="muted small">Log a gym session to chart each lift.</p>')+'</div>';
+  const cv=[],cl=[];for(let i=7;i>=0;i--){const s=addD(ws,-7*i);cv.push(weekCardio(s));cl.push(s.slice(8)+'/'+s.slice(5,7))}
+  h+='<div class="card"><h2>Cardio minutes by week</h2>'+barChart(cv,cl,150)+'</div>';
+  [['sleep','Sleep (h)',1,{at:6,c:'y',below:1}],['hrv','HRV (ms)',0,null],['rhr','Resting heart rate (bpm)',0,null]].forEach(m=>{
+    const p2=[];for(let i=29;i>=0;i--){const d=addD(end,-i),v=metric(d,m[0]);if(v!=null)p2.push({x:d.slice(5),y:v})}
+    let zones=null;if(m[3])zones=[Object.assign({show:0},m[3])];
+    else{const b=baseline(end,m[0]);if(b)zones=[m[0]==='hrv'?{at:b*.85,c:'y',below:1}:{at:b+5,c:'y',below:0}]}
+    h+='<div class="card"><h2>'+m[1]+'</h2>'+lineChart(p2,{dp:m[2],zones:zones,label:m[1],empty:'Import Apple Health data in Setup, or enter it each morning.'})+'</div>';
+  });
+  return h;
+}
+
+function vSetup(){
+  const p=P(),t=targets();let h='';
+  h+='<div class="card"><h2>You</h2>'+profileFields()+(t?'<div class="list"><div class="item"><span>Maintenance estimate</span><span class="mono">'+t.tdee+' kcal</span></div><div class="item"><span>Daily deficit</span><span class="mono">'+t.def+' kcal</span></div><div class="item"><span>Energy target</span><span class="mono">'+t.kcal+' kcal</span></div><div class="item"><span>Protein · carbs · fat</span><span class="mono">'+t.pro+' · '+t.carb+' · '+t.fat+' g</span></div></div>':'')+
+   '<div class="grid2"><label>Fat-loss pace<select id="pf-rate" data-chg="prof" data-k="rate">'+[[0,'Maintain'],[.25,'0.25% / week'],[.5,'0.5% / week'],[.75,'0.75% / week']].map(o=>'<option value="'+o[0]+'"'+(+p.rate===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></label>'+
+   '<label>Activity<select id="pf-act" data-chg="prof" data-k="act">'+[[1.4,'Light'],[1.55,'Moderate'],[1.7,'High']].map(o=>'<option value="'+o[0]+'"'+(+p.act===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></label>'+
+   '<label>Max HR (if measured)<input id="pf-max" inputmode="numeric" data-chg="prof" data-k="maxHr" value="'+esc(p.maxHr)+'"></label><label>Smallest plate jump kg<input id="pf-inc" inputmode="decimal" data-chg="prof" data-k="inc" value="'+esc(p.inc)+'"></label></div>'+
+   (num(p.kadj)?'<p class="small mono">Manual adjustment: '+(p.kadj>0?'+':'')+p.kadj+' kcal <button class="sm ghost" data-act="kreset">Reset</button></p>':'')+'</div>';
+  h+='<div class="card"><h2>Work</h2><div class="grid3"><label>Start<input id="wk-start" type="time" data-chg="prof" data-k="start" value="'+esc(p.start)+'"></label><label>Usual finish<input id="wk-fin" type="time" data-chg="prof" data-k="finish" value="'+esc(p.finish)+'"></label><label>Ride min<input id="wk-com" inputmode="numeric" data-chg="prof" data-k="commute" value="'+esc(p.commute)+'"></label></div>'+
+   '<p class="small muted">Overtime moves around, so the default week puts only two gym sessions after work and the third on Saturday, and any session can shrink to 25 minutes when you finish late.</p></div>';
+  h+='<div class="card"><h2>Weekly pattern</h2><div class="list">'+['mon','tue','wed','thu','fri','sat','sun'].map(d=>{const pl=core().plan[d]||{};return '<div class="item"><b class="mono" style="text-transform:uppercase;width:36px">'+d+'</b><div class="chips">'+[['ride','Ride'],['gym','Gym'],['hard','4×4']].map(o=>'<button class="chip'+(pl[o[0]]?' on':'')+'" data-act="plan" data-d="'+d+'" data-k="'+o[0]+'">'+o[1]+'</button>').join('')+'</div></div>'}).join('')+'</div><p class="muted small">Keep a day between gym sessions. One 4 × 4 ride a week is plenty on top of easy commutes.</p></div>';
+  h+='<div class="card rule"><h2>Apple Watch data</h2><p class="small">On your iPhone: Health app → your picture (top right) → Export All Health Data → Save to Files. Then choose that export.zip here. It reads sleep, HRV, resting heart rate, steps, weight and workouts from the last 400 days. Nothing else leaves the file.</p><input id="hk-file" type="file" accept=".zip,.xml,application/zip,text/xml" data-chg="hkfile"><p class="small mono" id="hk-msg">'+esc(importMsg||lastImport())+'</p><p class="muted small">Apple does not let web pages read the Watch directly, so repeat the export every week or two. The morning check-in covers the days between.</p></div>';
+  h+='<div class="card"><h2>Why it is built this way</h2><ul class="small">'+
+   '<li><b>Energy:</b> resting needs from the Mifflin-St Jeor equation (Am J Clin Nutr 1990), scaled for activity. Loss is capped near 0.5 to 1% of body weight a week, the range that best preserves lean mass (Helms et al., J Int Soc Sports Nutr 2014).</li>'+
+   '<li><b>Protein:</b> 2 g per kg. Gains from training plateau around 1.6 g/kg (Morton et al., Br J Sports Med 2018), and a deficit justifies the higher end.</li>'+
+   '<li><b>Lifting:</b> your own A, B, C program. The heavy first lift holds strength through a cut, and volume stays moderate because extra sets add little and cost recovery (Schoenfeld et al., J Sports Sci 2017). Sets stop 1 to 3 reps short of failure, which builds muscle about as well with less fatigue (Refalo et al., Sports Med 2023).</li>'+
+   '<li><b>Progression:</b> add reps inside the range, then add load.</li>'+
+   '<li><b>Cardio:</b> 150 to 300 minutes a week of moderate work (WHO 2020). Easy commutes build the base; one 4 × 4 session raises VO₂max more than the same work done easy (Helgerud et al., Med Sci Sports Exerc 2007).</li>'+
+   '<li><b>Readiness:</b> sleep, HRV and resting heart rate against your own 28-day baseline, the approach used in HRV-guided training (Plews et al., Sports Med 2013), plus how you feel.</li>'+
+   '<li><b>Caffeine:</b> stopped 8 hours before bed; even 6 hours before cuts sleep (Drake et al., J Clin Sleep Med 2013).</li></ul><p class="muted small">Estimates for planning, not medical advice.</p></div>';
+  h+='<div class="card"><h2>Your data</h2><p class="small muted">Everything is stored on this phone only. Download a backup now and then, and before changing phones.</p><div class="row"><button data-act="backup">Download backup</button><label style="flex-direction:row;align-items:center"><input id="rs-file" type="file" accept=".json,application/json" data-chg="restore" style="display:none"><span class="chip" role="button">Restore backup</span></label></div></div>';
+  return h;
+}
+function lastImport(){const ks=Object.keys(docs).filter(k=>k.startsWith('health-')).sort();if(!ks.length)return 'No import yet.';const ds=Object.keys(docs[ks[ks.length-1]].d||{}).sort();return ds.length?'Imported through '+nice(ds[ds.length-1])+'.':'No import yet.'}
+
+function render(){
+  const v={today:vToday,food:vFood,train:vTrain,progress:vProgress,setup:vSetup}[tab]||vToday;
+  const m=$('#main');const st=m.scrollTop;m.innerHTML=v();soft();m.scrollTop=render.keep?st:0;render.keep=false;
+  document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.t===tab));
+}
+function rr(){render.keep=true;render()}
+
+/* ---------- actions ---------- */
+function addFood(date,f){const d=day(date,true);(d.food=d.food||[]).push({name:String(f.name||'Food').slice(0,80),kcal:Math.round(+f.kcal||0),p:r1(+f.p||0),c:r1(+f.c||0),f:r1(+f.f||0)});saveDay(date)}
+async function estimate(text,blob){
+  if(busy)return;busy=true;rr();
+  try{
+    const sample=await window.claude.use('sample');
+    const prompt='You estimate nutrition for a personal food diary in Australia. '+(blob?'Estimate the food in the attached photo. ':'')+(text?'The meal as described: """'+text+'""". ':'')+'Use typical Australian portions when none is given. One item per distinct food. Reply with JSON only, no other text: {"items":[{"name":"short name with portion","kcal":number,"p":grams protein,"c":grams carbohydrate,"f":grams fat}]}';
+    const res=await sample(prompt,blob?{images:[blob]}:{});
+    const m=String(res.text||'').match(/\{[\s\S]*\}/);const j=m?JSON.parse(m[0]):null;
+    if(!j||!Array.isArray(j.items)||!j.items.length)throw new Error('none');
+    j.items.slice(0,12).forEach(it=>addFood(foodDate,it));toast('Added '+j.items.length+' item'+(j.items.length===1?'':'s')+'. Check the numbers.');
+  }catch(e){toast(e&&e.code==='rate_limited'?'Too many requests. Try again in a minute.':'Could not estimate that. Add it by numbers instead.');if(e&&e.code==='not_granted')canSample=false}
+  busy=false;rr();
+}
+const acts={
+  rerender(){saveCore();rr();toast('Saved')},
+  scale(el){const d=day(today(),true);d.check=d.check||{};const k=el.dataset.k,v=+el.dataset.v;d.check[k]=d.check[k]===v?null:v;saveDay(today());rr()},
+  late(){const d=day(today(),true);d.check=d.check||{};d.check.late=d.check.late?0:1;saveDay(today());rr()},
+  ride(el){const d=day(today(),true);(d.cardio=d.cardio||[]).push({type:el.dataset.v==='in'?'Ride in':'Ride home',min:num(P().commute)||28});saveDay(today());rr();toast('Ride logged')},
+  addcardio(){const m=num($('#cd-min').value);if(!m){toast('Enter the minutes');return}const d=day(today(),true);(d.cardio=d.cardio||[]).push({type:$('#cd-type').value,min:m,hr:num($('#cd-hr').value)});saveDay(today());rr();toast('Cardio logged')},
+  fday(el){const n=addD(foodDate,+el.dataset.v);if(n<=today()){foodDate=n;render()}},
+  estimate(){const t=$('#fd-text').value.trim();if(!t){toast('Describe what you ate first');return}estimate(t,null)},
+  addfood(){const n=$('#fm-name').value.trim(),k=num($('#fm-kcal').value);if(!n||k==null){toast('Enter a name and kcal');return}addFood(foodDate,{name:n,kcal:k,p:num($('#fm-p').value),c:num($('#fm-c').value),f:num($('#fm-f').value)});rr()},
+  quick(el){const f=FOODS[+el.dataset.i],n=+$('#fqn').value||1;addFood(foodDate,{name:(n!==1?n+' × ':'')+f[0],kcal:f[1]*n,p:f[2]*n,c:f[3]*n,f:f[4]*n});rr();toast('Added')},
+  fav(el){addFood(foodDate,core().favs[+el.dataset.i]);rr()},
+  star(el){const f=day(foodDate).food[+el.dataset.i];if(!core().favs.some(x=>x.name===f.name)){core().favs.push(clone(f));core().favs=core().favs.slice(-24);saveCore();rr();toast('Saved to regulars')}else toast('Already a regular')},
+  delfood(el){day(foodDate).food.splice(+el.dataset.i,1);saveDay(foodDate);rr()},
+  start(){const p=P(),c=(day(today())||{}).check||{};core().active=genSession(ORDER[core().rot%3],num(p.mins)||45,readiness(today()),c.late);saveCore();render()},
+  skip(){core().rot=(core().rot+1)%3;saveCore();rr()},
+  swap(el){const e=core().active.ex[+el.dataset.i],alts=T[core().active.key].ex[e.slot].alts;e.alt=(e.alt+1)%alts.length;e.name=alts[e.alt];fillSets(e);saveCore();rr()},
+  addset(el){const e=core().active.ex[+el.dataset.i],l=e.sets[e.sets.length-1];e.sets.push({w:l?l.w:'',r:'',done:0});e.n=e.sets.length;saveCore();rr()},
+  tick(el){const s=core().active.ex[+el.dataset.e].sets[+el.dataset.s];s.done=s.done?0:1;saveCore();el.classList.toggle('on',!!s.done)},
+  finish(){const a=core().active;const ex=a.ex.map(e=>({name:e.name,m:e.m,sets:e.sets.filter(s=>num(s.r)>0).map(s=>({w:num(s.w)||0,r:num(s.r)}))})).filter(e=>e.sets.length);
+    if(!ex.length){toast('Enter reps for at least one set');return}
+    const id='sessions-'+today().slice(0,4);(docs[id]=docs[id]||{list:[]}).list.push({date:today(),key:a.key,mode:a.mode,ex});Store.save(id);
+    core().active=null;core().rot=(core().rot+1)%3;saveCore();render();toast('Session saved')},
+  cancel(el){if(el.dataset.sure){core().active=null;saveCore();render()}else{el.dataset.sure=1;el.textContent='Tap again to discard'}},
+  plan(el){const pl=core().plan[el.dataset.d]=core().plan[el.dataset.d]||{};const k=el.dataset.k;pl[k]=pl[k]?0:1;if(k==='hard'&&pl.hard)pl.ride=1;if(k==='ride'&&!pl.ride)pl.hard=0;saveCore();rr()},
+  kadj(el){P().kadj=(num(P().kadj)||0)+(+el.dataset.v);saveCore();rr();toast('Target updated')},
+  kreset(){P().kadj=0;saveCore();rr()},
+  backup(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(docs)],{type:'application/json'}));a.download='training-chart-backup-'+today()+'.json';document.body.appendChild(a);a.click();a.remove();toast('Backup downloaded')}
+};
+const chgs={
+  check(el){const d=day(today(),true);d.check=d.check||{};d.check[el.dataset.k]=num(el.value);saveDay(today());soft()},
+  weight(el){const d=day(today(),true);d.weight=num(el.value);saveDay(today());soft()},
+  prof(el){const k=el.dataset.k;P()[k]=(k==='sex'||k==='start'||k==='finish')?el.value:(num(el.value)==null?'':num(el.value));saveCore();if(el.tagName==='SELECT'&&tab==='setup')rr();else soft()},
+  mins(el){P().mins=+el.value;saveCore();rr()},
+  set(el){const s=core().active.ex[+el.dataset.e].sets[+el.dataset.s];s[el.dataset.f]=el.value;if(el.dataset.f==='r'&&num(el.value)>0&&!s.done){s.done=1;const b=el.nextElementSibling;if(b)b.classList.add('on')}saveCore()},
+  expick(el){exPick=el.value;rr()},
+  photo(el){const f=el.files&&el.files[0];if(f)estimate(($('#fd-text').value||'').trim(),f)},
+  async restore(el){const f=el.files&&el.files[0];if(!f)return;try{const j=JSON.parse(await f.text());if(!j||!j.core||!j.core.profile)throw 0;docs=j;docs.core=Object.assign(clone(CORE0),docs.core);docs.core.profile=Object.assign(clone(CORE0.profile),docs.core.profile);Store.save();render();toast('Backup restored')}catch(e){toast('That file is not a Training Chart backup')}},
+  hkfile(el){const f=el.files&&el.files[0];if(f)importHealth(f)}
+};
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(el&&acts[el.dataset.act]){e.preventDefault();acts[el.dataset.act](el)}});
+document.addEventListener('change',e=>{const el=e.target.closest('[data-chg]');if(el&&chgs[el.dataset.chg])chgs[el.dataset.chg](el)});
+function route(){const t=(location.hash||'#today').slice(1);tab=['today','food','train','progress','setup'].includes(t)?t:'today';render()}
+window.addEventListener('hashchange',route);
+document.addEventListener('input',e=>{if(e.target.id==='fq')$('#fq-hits').innerHTML=foodHits(e.target.value)});
+
+/* ---------- Apple Health export parser ---------- */
+function HealthParser(cutoff){
+  const A=n=>new RegExp('(?:^|\\s)'+n+'="([^"]*)"');
+  const rType=A('type'),rVal=A('value'),rStart=A('startDate'),rEnd=A('endDate'),rSrc=A('sourceName'),rAct=A('workoutActivityType'),rDur=A('duration'),rUnit=A('durationUnit'),rAvg=A('average');
+  const g=(s,r)=>{const m=r.exec(s);return m?m[1]:null};
+  const ms=s=>Date.parse(s.slice(0,10)+'T'+s.slice(11,19)+s.slice(20,23)+':'+s.slice(23,25));
+  const TYPES={HKQuantityTypeIdentifierRestingHeartRate:'rhr',HKQuantityTypeIdentifierHeartRateVariabilitySDNN:'hrv',HKQuantityTypeIdentifierStepCount:'steps',HKQuantityTypeIdentifierActiveEnergyBurned:'active',HKQuantityTypeIdentifierBodyMass:'weight',HKQuantityTypeIdentifierVO2Max:'vo2',HKCategoryTypeIdentifierSleepAnalysis:'sleep'};
+  const acc={};let buf='',curWo=null,count=0;
+  const D=d=>acc[d]||(acc[d]={avg:{},sum:{},last:{},wo:[]});
+  const re=/<(Record|Workout|WorkoutStatistics)\s([^>]*)>|<\/Workout>/g;
+  function tag(name,a){
+    if(name==='Record'){
+      const ty=g(a,rType),k=TYPES[ty];if(!k)return;
+      const end=g(a,rEnd)||g(a,rStart);if(!end)return;const d=end.slice(0,10);if(d<cutoff)return;
+      const val=g(a,rVal);count++;
+      if(k==='sleep'){if(!/Asleep/.test(val||''))return;const h=(ms(end)-ms(g(a,rStart)))/36e5;if(!(h>0&&h<24))return;const src=g(a,rSrc)||'?';const o=D(d).sum;(o.sleep=o.sleep||{})[src]=(o.sleep[src]||0)+h;return}
+      const v=parseFloat(val);if(!isFinite(v))return;
+      if(k==='rhr'||k==='hrv'){const o=D(d).avg;(o[k]=o[k]||[0,0])[0]+=v;o[k][1]++}
+      else if(k==='steps'||k==='active'){const src=g(a,rSrc)||'?';const o=D(d).sum;(o[k]=o[k]||{})[src]=(o[k][src]||0)+v}
+      else D(d).last[k]=v;
+    }else if(name==='Workout'){
+      const st=g(a,rStart);if(!st)return;const d=st.slice(0,10);let m=parseFloat(g(a,rDur));const u=g(a,rUnit);if(u==='s')m/=60;if(u==='hr')m*=60;
+      curWo={t:(g(a,rAct)||'Other').replace('HKWorkoutActivityType',''),m:Math.round(m)};
+      if(d>=cutoff&&isFinite(m)){D(d).wo.push(curWo);count++}
+      if(/\/\s*$/.test(a))curWo=null;
+    }else if(name==='WorkoutStatistics'&&curWo){
+      if(g(a,rType)==='HKQuantityTypeIdentifierHeartRate'){const av=parseFloat(g(a,rAvg));if(isFinite(av))curWo.hr=Math.round(av)}
+    }
+  }
+  this.feed=function(text){
+    buf+=text;const cut=buf.lastIndexOf('>');if(cut<0)return;
+    const chunk=buf.slice(0,cut+1);buf=buf.slice(cut+1);let m;re.lastIndex=0;
+    while((m=re.exec(chunk))){if(m[1])tag(m[1],m[2]);else curWo=null}
+  };
+  this.result=function(){
+    const out={};const pick=o=>{let best=0,w=0;for(const s in o){if(/watch/i.test(s))w=Math.max(w,o[s]);best=Math.max(best,o[s])}return w||best};
+    for(const d in acc){const a=acc[d],r={};
+      if(a.avg.rhr)r.rhr=Math.round(a.avg.rhr[0]/a.avg.rhr[1]);
+      if(a.avg.hrv)r.hrv=Math.round(a.avg.hrv[0]/a.avg.hrv[1]);
+      if(a.sum.sleep)r.sleep=Math.round(pick(a.sum.sleep)*10)/10;
+      if(a.sum.steps)r.steps=Math.round(pick(a.sum.steps));
+      if(a.sum.active)r.active=Math.round(pick(a.sum.active));
+      if(a.last.weight)r.weight=Math.round(a.last.weight*10)/10;
+      if(a.last.vo2)r.vo2=Math.round(a.last.vo2*10)/10;
+      if(a.wo.length)r.wo=a.wo.slice(0,8);
+      if(Object.keys(r).length)out[d]=r}
+    return {days:out,count};
+  };
+}
+async function importHealth(file){
+  const say=m=>{importMsg=m;const el=$('#hk-msg');if(el)el.textContent=m};
+  const parser=new HealthParser(addD(today(),-400)),dec=new TextDecoder();let read=0,found=false,err=null;
+  say('Reading…');
+  try{
+    const reader=file.stream().getReader();
+    const isZip=/\.zip$/i.test(file.name)||/zip/.test(file.type);
+    let unz=null;
+    if(isZip){
+      if(!window.fflate)throw new Error('The unzip library did not load. Unzip the export and choose export.xml instead.');
+      unz=new fflate.Unzip();unz.register(fflate.UnzipInflate);
+      unz.onfile=f=>{if(!found&&/\.xml$/i.test(f.name)&&!/cda/i.test(f.name)){found=true;f.ondata=(e,chunk)=>{if(e){err=e;return}parser.feed(dec.decode(chunk,{stream:true}))};f.start()}};
+    }
+    for(;;){const {value,done}=await reader.read();if(done){if(unz)unz.push(new Uint8Array(0),true);break}
+      read+=value.length;if(unz)unz.push(value,false);else{found=true;parser.feed(dec.decode(value,{stream:true}))}
+      if(err)throw err;say('Reading… '+Math.round(read/file.size*100)+'%');await new Promise(r=>setTimeout(r,0))}
+    const res=parser.result(),dates=Object.keys(res.days).sort();
+    if(!found||!dates.length)throw new Error('No health records found. Choose the export.zip from the Health app, or the export.xml inside it.');
+    const touched={};dates.forEach(d=>{const id='health-'+d.slice(0,4);(docs[id]=docs[id]||{d:{}}).d[d]=res.days[d];touched[id]=1});
+    Object.keys(touched).forEach(id=>Store.save(id));
+    say('Imported '+dates.length+' days through '+nice(dates[dates.length-1])+'.');toast('Apple Health data imported');soft();
+  }catch(e){say('Import failed: '+(e&&e.message||'could not read that file')+'')}
+}
+
+/* ---------- boot ---------- */
+(async function(){
+  await Store.init();
+  route();
+  if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+if(typeof module!=='undefined')module.exports={HealthParser};
+</script>
+</body>
+</html>
