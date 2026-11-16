@@ -144,7 +144,7 @@ const hm=s=>{const a=String(s||'0:0').split(':').map(Number);return a[0]*60+(a[1
 const toHM=m=>{m=((m%1440)+1440)%1440;return pad(Math.floor(m/60))+':'+pad(Math.round(m%60))};
 
 /* ---------- storage ---------- */
-const CORE0={profile:{sex:'',age:'',h:'',w:'',rate:0.5,act:1.55,maxHr:'',mins:45,start:'06:30',finish:'16:30',commute:28,inc:2.5,kadj:0},
+const CORE0={profile:{sex:'',age:'',h:'',w:'',rate:0.5,act:1.55,maxHr:'',mins:45,start:'06:30',finish:'16:30',wake:'',commute:28,inc:2.5,kadj:0},
   plan:{mon:{ride:1},tue:{ride:1,gym:1},wed:{ride:1,hard:1},thu:{ride:1,gym:1},fri:{ride:1},sat:{gym:1},sun:{}},
   favs:[],rot:0,active:null};
 let docs={core:clone(CORE0)};
@@ -189,6 +189,8 @@ function readiness(date){
   const tw=parts.reduce((a,p)=>a+p[0],0);
   return Math.round(100*parts.reduce((a,p)=>a+p[0]*p[1],0)/tw);
 }
+function isLate(c){c=c||{};if(c.late)return true;if(!c.wf)return false;let f=hm(c.wf);const s0=hm(c.ws||P().start);if(f<s0)f+=1440;return f>=hm(P().finish)+60}
+function workHours(date){const d=day(date),c=d&&d.check;if(!c||!c.wf)return 0;let f=hm(c.wf);const s0=hm(c.ws||P().start);if(f<s0)f+=1440;return Math.max(0,(f-s0)/60)}
 const band=r=>r==null?'':r>=70?'g':r>=45?'y':'r';
 function weights(){const m={};Object.keys(docs).forEach(k=>{if(k.startsWith('health-')){const d=docs[k].d||{};for(const x in d)if(d[x].weight)m[x]=d[x].weight}});
   Object.keys(docs).forEach(k=>{if(k.startsWith('days-')){const d=docs[k].d||{};for(const x in d){const w=num(d[x].weight);if(w)m[x]=w}}});
@@ -284,12 +286,12 @@ function lineChart(pts,o){
   s+='<text x="'+L+'" y="'+(H-3)+'">'+esc(pts[0].x)+'</text><text x="'+(W-R)+'" y="'+(H-3)+'" text-anchor="end">'+esc(lp.x)+'</text></svg>';
   return s;
 }
-function barChart(vals,labels,target){
+function barChart(vals,labels,target,unit,aria){unit=unit||'min';
   const W=320,H=110,L=30,B=16,Tp=8;const mx=Math.max(target||0,Math.max.apply(null,vals),1)*1.1;
-  const bw=(W-L-6)/vals.length;let s='<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Weekly cardio minutes">';
+  const bw=(W-L-6)/vals.length;let s='<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(aria||'Weekly cardio minutes')+'">';
   [0,.5,1].forEach(f=>{const v=mx*f,y=Tp+(H-Tp-B)*(1-f);s+='<line x1="'+L+'" x2="'+W+'" y1="'+y+'" y2="'+y+'" stroke="var(--line)"/><text x="'+(L-4)+'" y="'+(y+3)+'" text-anchor="end">'+Math.round(v)+'</text>'});
   vals.forEach((v,i)=>{const h=(H-Tp-B)*v/mx;s+='<rect x="'+(L+i*bw+3)+'" y="'+(H-B-h)+'" width="'+(bw-6)+'" height="'+h+'" fill="var(--accent)" opacity="'+(i===vals.length-1?1:.55)+'"/><text x="'+(L+i*bw+bw/2)+'" y="'+(H-3)+'" text-anchor="middle">'+esc(labels[i])+'</text>'});
-  if(target){const y=Tp+(H-Tp-B)*(1-target/mx);s+='<line x1="'+L+'" x2="'+W+'" y1="'+y+'" y2="'+y+'" stroke="var(--ink)" stroke-dasharray="4 3"/><text x="'+(W-2)+'" y="'+(y-3)+'" text-anchor="end" style="fill:var(--ink)">'+target+' min</text>'}
+  if(target){const y=Tp+(H-Tp-B)*(1-target/mx);s+='<line x1="'+L+'" x2="'+W+'" y1="'+y+'" y2="'+y+'" stroke="var(--ink)" stroke-dasharray="4 3"/><text x="'+(W-2)+'" y="'+(y-3)+'" text-anchor="end" style="fill:var(--ink)">'+target+' '+unit+'</text>'}
   return s+'</svg>';
 }
 
@@ -327,8 +329,8 @@ live.plan=function(){
   if(core().active)lines.push('<div class="note">Workout in progress: '+T[core().active.key].name+'.</div>');
   else if(done)lines.push('<div class="note">Gym session logged today. Eat your protein and get to bed on time.</div>');
   else if(pl.gym){
-    const g=genSession(key,num(p.mins)||45,r,c.late);
-    const why=c.late?'Late finish, so this is your short version: the first lift and the first superset. It is enough to hold strength.':g.mode==='min'?'Readiness is low, so do the first lift and first superset at an easy effort. Skipping is fine too; the rotation keeps your place.':g.mode==='trim'?'Readiness is middling. Keep the first lift heavy, drop a set from each superset and stop about 3 reps from failure.':'Full session. Keep the first lift heavy and stop most sets 1 to 2 reps short.';
+    const g=genSession(key,num(p.mins)||45,r,isLate(c));
+    const why=isLate(c)?'Late finish, so this is your short version: the first lift and the first superset. It is enough to hold strength.':g.mode==='min'?'Readiness is low, so do the first lift and first superset at an easy effort. Skipping is fine too; the rotation keeps your place.':g.mode==='trim'?'Readiness is middling. Keep the first lift heavy, drop a set from each superset and stop about 3 reps from failure.':'Full session. Keep the first lift heavy and stop most sets 1 to 2 reps short.';
     lines.push('<h3>'+T[key].name+' ('+T[key].focus+') · about '+g.est+' min after work</h3><p class="small">'+why+'</p>');
   } else lines.push('<p class="small">No gym planned today.</p>');
   if(pl.ride){
@@ -336,7 +338,7 @@ live.plan=function(){
     else lines.push('<p class="small"><b>Commute rides easy</b>'+(pl.hard?' (intervals shelved, readiness is not clear)':'')+': '+(mh?'keep heart rate under '+Math.round(mh*.75)+' bpm':'a pace where you can hold a conversation')+'. Two legs give you '+(2*(num(p.commute)||28))+' min of base work.</p>');
   }
   if(!pl.ride&&!pl.gym)lines.push('<p class="small">Rest day. A walk is plenty.</p>');
-  const wake=hm(p.start)-(num(p.commute)||28)-45,bed=wake-465;
+  const wake=p.wake?hm(p.wake):hm(p.start)-(num(p.commute)||28)-45,bed=wake-465;
   lines.push('<p class="muted small mono">Tomorrow: up '+toHM(wake)+' · lights out '+toHM(bed)+' · last coffee '+toHM(bed-480)+'</p>');
   return lines.join('');
 };
@@ -345,12 +347,12 @@ function vToday(){
   if(!targets())h+='<div class="card rule"><h2>Set your numbers</h2><p class="small muted">Needed once, for energy and protein targets and heart-rate zones.</p>'+profileFields()+'</div>';
   h+='<div class="card"><div class="row between"><h2>Morning obs</h2><span class="muted small mono">20 seconds</span></div><div data-live="ready"></div>'+
    '<div class="grid4"><label>Sleep h<input id="ci-sleep" inputmode="decimal" data-chg="check" data-k="sleep" value="'+esc(c.sleep!=null?c.sleep:(metric(d,'sleep')!=null?r1(metric(d,'sleep')):''))+'"></label>'+
-   '<label>Rest HR<input id="ci-rhr" inputmode="numeric" data-chg="check" data-k="rhr" value="'+esc(c.rhr!=null?c.rhr:'')+'"></label>'+
-   '<label>HRV ms<input id="ci-hrv" inputmode="numeric" data-chg="check" data-k="hrv" value="'+esc(c.hrv!=null?c.hrv:'')+'"></label>'+
+   '<label>Rest HR<input id="ci-rhr" inputmode="numeric" data-chg="check" data-k="rhr" placeholder="'+esc((health(d)||{}).rhr||'')+'" value="'+esc(c.rhr!=null?c.rhr:'')+'"></label>'+
+   '<label>HRV ms<input id="ci-hrv" inputmode="numeric" data-chg="check" data-k="hrv" placeholder="'+esc((health(d)||{}).hrv||'')+'" value="'+esc(c.hrv!=null?c.hrv:'')+'"></label>'+
    '<label>Weight kg<input id="ci-w" inputmode="decimal" data-chg="weight" value="'+esc(dd.weight||'')+'"></label></div>'+
    '<div><label>Energy</label><div class="chips">'+[1,2,3,4,5].map(n=>'<button class="chip'+(c.energy===n?' on':'')+'" data-act="scale" data-k="energy" data-v="'+n+'">'+n+'</button>').join('')+'<span class="muted small" style="align-self:center">1 flat · 5 great</span></div></div>'+
    '<div><label>Soreness</label><div class="chips">'+[1,2,3,4,5].map(n=>'<button class="chip'+(c.sore===n?' on':'')+'" data-act="scale" data-k="sore" data-v="'+n+'">'+n+'</button>').join('')+'<span class="muted small" style="align-self:center">1 none · 5 very</span></div></div>'+
-   '<button class="chip'+(c.late?' on':'')+'" data-act="late" style="align-self:flex-start">'+(c.late?'Finishing late today ✓':'Finishing late today?')+'</button></div>';
+   '<div class="grid2"><label>Work start<input id="ci-ws" type="time" data-chg="wtime" data-k="ws" value="'+esc(c.ws||p.start)+'"></label><label>Work finish<input id="ci-wf" type="time" data-chg="wtime" data-k="wf" value="'+esc(c.wf||'')+'"></label></div><p class="muted small">Enter your finish time when you know it, even a guess at lunch. An hour or more past your usual '+esc(p.finish)+' switches today to the short session.</p></div>';
   h+='<div class="card rule"><h2>Today\'s orders</h2><div data-live="plan" style="display:flex;flex-direction:column;gap:8px"></div><div class="row"><a href="#train"><button class="pri">'+(core().active?'Resume workout':'Open training')+'</button></a><button data-act="ride" data-v="in">Rode in</button><button data-act="ride" data-v="home">Rode home</button></div></div>';
   h+='<div class="card"><div class="row between"><h2>Fuel</h2><a href="#food"><button class="sm">Log food</button></a></div><div data-live="fuel" style="display:flex;flex-direction:column;gap:8px"></div></div>';
   h+='<div class="card"><h2>This week</h2>'+weekStrip()+'</div>';
@@ -402,7 +404,7 @@ function vTrain(){
     h+='<div class="row"><button class="pri" data-act="finish">Finish and save</button><button class="ghost" data-act="cancel">Discard</button></div>';
     return h;
   }
-  const key=ORDER[core().rot%3],r=readiness(today()),c=(day(today())||{}).check||{},g=genSession(key,num(p.mins)||45,r,c.late);
+  const key=ORDER[core().rot%3],r=readiness(today()),c=(day(today())||{}).check||{},g=genSession(key,num(p.mins)||45,r,isLate(c));
   h+='<div class="card rule"><div class="row between"><h2>Next: '+T[key].name+'</h2><span class="pill '+band(r)+'">'+(g.mode==='full'?'Full':g.mode==='trim'?'Trimmed':'Minimum dose')+'</span></div><p class="small muted">'+T[key].focus+' · about '+g.est+' min · built from today\'s readiness'+(r==null?' (no check-in, so full session)':'')+'</p><div class="list">'+g.ex.map(e=>'<div class="item"><span class="n"><span class="tag">'+esc(e.tag)+'</span> '+esc(e.name)+'</span><span class="mono small">'+e.n+' × '+e.lo+'–'+e.hi+'</span></div>').join('')+'</div>'+
    '<div class="row"><label style="flex:1">Time available<select id="tr-mins" data-chg="mins">'+[[30,'30 min'],[45,'45 min'],[55,'55 min']].map(o=>'<option value="'+o[0]+'"'+((num(p.mins)||45)===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></label><button class="pri" data-act="start" style="align-self:flex-end">Start</button></div><button class="sm ghost" data-act="skip" style="align-self:flex-start">Do a different session instead</button></div>';
   h+='<div class="card"><h2>Cardio</h2><div class="row"><button data-act="ride" data-v="in">Rode in</button><button data-act="ride" data-v="home">Rode home</button></div><div class="grid3"><label>Type<select id="cd-type"><option>Ride</option><option>Intervals</option><option>Walk</option><option>Other</option></select></label><label>Minutes<input id="cd-min" inputmode="numeric"></label><label>Avg HR<input id="cd-hr" inputmode="numeric"></label></div><button data-act="addcardio" style="align-self:flex-start">Log cardio</button>'+
@@ -430,6 +432,8 @@ function vProgress(){
   h+='<div class="card"><h2>Strength</h2>'+(nl.length?'<select id="ex-pick" data-chg="expick">'+nl.map(n=>'<option'+(n===exPick?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select>'+lineChart(pts,{dp:1,label:'Estimated one-rep max',empty:'Two sessions of this lift draw a line.'})+'<p class="muted small">Estimated one-rep max in kg from your best set (Epley).</p>':'<p class="muted small">Log a gym session to chart each lift.</p>')+'</div>';
   const cv=[],cl=[];for(let i=7;i>=0;i--){const s=addD(ws,-7*i);cv.push(weekCardio(s));cl.push(s.slice(8)+'/'+s.slice(5,7))}
   h+='<div class="card"><h2>Cardio minutes by week</h2>'+barChart(cv,cl,150)+'</div>';
+  const hv=[];for(let i=7;i>=0;i--){const s0=addD(ws,-7*i);let t=0;for(let k=0;k<7;k++)t+=workHours(addD(s0,k));hv.push(Math.round(t))}
+  h+='<div class="card"><h2>Hours at work by week</h2>'+(hv.some(v=>v>0)?barChart(hv,cl,0,'h','Weekly hours at work'):'<p class="muted small">Log your start and finish in the morning obs to see weekly hours here.</p>')+'</div>';
   [['sleep','Sleep (h)',1,{at:6,c:'y',below:1}],['hrv','HRV (ms)',0,null],['rhr','Resting heart rate (bpm)',0,null]].forEach(m=>{
     const p2=[];for(let i=29;i>=0;i--){const d=addD(end,-i),v=metric(d,m[0]);if(v!=null)p2.push({x:d.slice(5),y:v})}
     let zones=null;if(m[3])zones=[Object.assign({show:0},m[3])];
@@ -442,14 +446,14 @@ function vProgress(){
 function vSetup(){
   const p=P(),t=targets();let h='';
   h+='<div class="card"><h2>You</h2>'+profileFields()+(t?'<div class="list"><div class="item"><span>Maintenance estimate</span><span class="mono">'+t.tdee+' kcal</span></div><div class="item"><span>Daily deficit</span><span class="mono">'+t.def+' kcal</span></div><div class="item"><span>Energy target</span><span class="mono">'+t.kcal+' kcal</span></div><div class="item"><span>Protein · carbs · fat</span><span class="mono">'+t.pro+' · '+t.carb+' · '+t.fat+' g</span></div></div>':'')+
-   '<div class="grid2"><label>Fat-loss pace<select id="pf-rate" data-chg="prof" data-k="rate">'+[[0,'Maintain'],[.25,'0.25% / week'],[.5,'0.5% / week'],[.75,'0.75% / week']].map(o=>'<option value="'+o[0]+'"'+(+p.rate===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></label>'+
+   (t?'<p class="muted small">The target already includes your usual rides and gym through the activity setting, so do not add workout calories back on top. It stays the same every day and is corrected from your weight trend.</p>':'')+'<div class="grid2"><label>Fat-loss pace<select id="pf-rate" data-chg="prof" data-k="rate">'+[[0,'Maintain'],[.25,'0.25% / week'],[.5,'0.5% / week'],[.75,'0.75% / week']].map(o=>'<option value="'+o[0]+'"'+(+p.rate===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></label>'+
    '<label>Activity<select id="pf-act" data-chg="prof" data-k="act">'+[[1.4,'Light'],[1.55,'Moderate'],[1.7,'High']].map(o=>'<option value="'+o[0]+'"'+(+p.act===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></label>'+
    '<label>Max HR (if measured)<input id="pf-max" inputmode="numeric" data-chg="prof" data-k="maxHr" value="'+esc(p.maxHr)+'"></label><label>Smallest plate jump kg<input id="pf-inc" inputmode="decimal" data-chg="prof" data-k="inc" value="'+esc(p.inc)+'"></label></div>'+
    (num(p.kadj)?'<p class="small mono">Manual adjustment: '+(p.kadj>0?'+':'')+p.kadj+' kcal <button class="sm ghost" data-act="kreset">Reset</button></p>':'')+'</div>';
-  h+='<div class="card"><h2>Work</h2><div class="grid3"><label>Start<input id="wk-start" type="time" data-chg="prof" data-k="start" value="'+esc(p.start)+'"></label><label>Usual finish<input id="wk-fin" type="time" data-chg="prof" data-k="finish" value="'+esc(p.finish)+'"></label><label>Ride min<input id="wk-com" inputmode="numeric" data-chg="prof" data-k="commute" value="'+esc(p.commute)+'"></label></div>'+
+  h+='<div class="card"><h2>Work and sleep</h2><div class="grid2"><label>Alarm<input id="wk-wake" type="time" data-chg="prof" data-k="wake" value="'+esc(p.wake||toHM(hm(p.start)-(num(p.commute)||28)-45))+'"></label><label>Start<input id="wk-start" type="time" data-chg="prof" data-k="start" value="'+esc(p.start)+'"></label><label>Usual finish<input id="wk-fin" type="time" data-chg="prof" data-k="finish" value="'+esc(p.finish)+'"></label><label>Ride min<input id="wk-com" inputmode="numeric" data-chg="prof" data-k="commute" value="'+esc(p.commute)+'"></label></div>'+
    '<p class="small muted">Overtime moves around, so the default week puts only two gym sessions after work and the third on Saturday, and any session can shrink to 25 minutes when you finish late.</p></div>';
   h+='<div class="card"><h2>Weekly pattern</h2><div class="list">'+['mon','tue','wed','thu','fri','sat','sun'].map(d=>{const pl=core().plan[d]||{};return '<div class="item"><b class="mono" style="text-transform:uppercase;width:36px">'+d+'</b><div class="chips">'+[['ride','Ride'],['gym','Gym'],['hard','4×4']].map(o=>'<button class="chip'+(pl[o[0]]?' on':'')+'" data-act="plan" data-d="'+d+'" data-k="'+o[0]+'">'+o[1]+'</button>').join('')+'</div></div>'}).join('')+'</div><p class="muted small">Keep a day between gym sessions. One 4 × 4 ride a week is plenty on top of easy commutes.</p></div>';
-  h+='<div class="card rule"><h2>Apple Watch data</h2><p class="small">On your iPhone: Health app → your picture (top right) → Export All Health Data → Save to Files. Then choose that export.zip here. It reads sleep, HRV, resting heart rate, steps, weight and workouts from the last 400 days. Nothing else leaves the file.</p><input id="hk-file" type="file" accept=".zip,.xml,application/zip,text/xml" data-chg="hkfile"><p class="small mono" id="hk-msg">'+esc(importMsg||lastImport())+'</p><p class="muted small">Apple does not let web pages read the Watch directly, so repeat the export every week or two. The morning check-in covers the days between.</p></div>';
+  h+='<div class="card rule"><h2>Apple Watch data</h2><p class="small">On your iPhone: Health app → your picture (top right) → Export All Health Data → Save to Files. Then choose that export.zip here. It reads sleep, HRV, resting heart rate, steps, weight and workouts from the last 400 days. Nothing else leaves the file.</p><p class="small"><b>Daily option:</b> a health summary export (.json or .csv, one row per day) also works. Include Resting Heart Rate, Heart Rate Variability, Sleep, Weight and Steps in the export, then choose the file here. New days are added to what is already stored.</p><input id="hk-file" type="file" accept=".zip,.xml,.json,.csv,application/zip,text/xml,application/json,text/csv" data-chg="hkfile"><p class="small mono" id="hk-msg">'+esc(importMsg||lastImport())+'</p><p class="muted small">Apple does not let web pages read the Watch directly, so an import or the morning check-in is the only way in.</p></div>';
   h+='<div class="card"><h2>Why it is built this way</h2><ul class="small">'+
    '<li><b>Energy:</b> resting needs from the Mifflin-St Jeor equation (Am J Clin Nutr 1990), scaled for activity. Loss is capped near 0.5 to 1% of body weight a week, the range that best preserves lean mass (Helms et al., J Int Soc Sports Nutr 2014).</li>'+
    '<li><b>Protein:</b> 2 g per kg. Gains from training plateau around 1.6 g/kg (Morton et al., Br J Sports Med 2018), and a deficit justifies the higher end.</li>'+
@@ -497,7 +501,7 @@ const acts={
   fav(el){addFood(foodDate,core().favs[+el.dataset.i]);rr()},
   star(el){const f=day(foodDate).food[+el.dataset.i];if(!core().favs.some(x=>x.name===f.name)){core().favs.push(clone(f));core().favs=core().favs.slice(-24);saveCore();rr();toast('Saved to regulars')}else toast('Already a regular')},
   delfood(el){day(foodDate).food.splice(+el.dataset.i,1);saveDay(foodDate);rr()},
-  start(){const p=P(),c=(day(today())||{}).check||{};core().active=genSession(ORDER[core().rot%3],num(p.mins)||45,readiness(today()),c.late);saveCore();render()},
+  start(){const p=P(),c=(day(today())||{}).check||{};core().active=genSession(ORDER[core().rot%3],num(p.mins)||45,readiness(today()),isLate(c));saveCore();render()},
   skip(){core().rot=(core().rot+1)%3;saveCore();rr()},
   swap(el){const e=core().active.ex[+el.dataset.i],alts=T[core().active.key].ex[e.slot].alts;e.alt=(e.alt+1)%alts.length;e.name=alts[e.alt];fillSets(e);saveCore();rr()},
   addset(el){const e=core().active.ex[+el.dataset.i],l=e.sets[e.sets.length-1];e.sets.push({w:l?l.w:'',r:'',done:0});e.n=e.sets.length;saveCore();rr()},
@@ -514,14 +518,15 @@ const acts={
 };
 const chgs={
   check(el){const d=day(today(),true);d.check=d.check||{};d.check[el.dataset.k]=num(el.value);saveDay(today());soft()},
+  wtime(el){const d=day(today(),true);d.check=d.check||{};d.check[el.dataset.k]=el.value||null;d.check.late=0;saveDay(today());soft()},
   weight(el){const d=day(today(),true);d.weight=num(el.value);saveDay(today());soft()},
-  prof(el){const k=el.dataset.k;P()[k]=(k==='sex'||k==='start'||k==='finish')?el.value:(num(el.value)==null?'':num(el.value));saveCore();if(el.tagName==='SELECT'&&tab==='setup')rr();else soft()},
+  prof(el){const k=el.dataset.k;P()[k]=(k==='sex'||k==='start'||k==='finish'||k==='wake')?el.value:(num(el.value)==null?'':num(el.value));saveCore();if(el.tagName==='SELECT'&&tab==='setup')rr();else soft()},
   mins(el){P().mins=+el.value;saveCore();rr()},
   set(el){const s=core().active.ex[+el.dataset.e].sets[+el.dataset.s];s[el.dataset.f]=el.value;if(el.dataset.f==='r'&&num(el.value)>0&&!s.done){s.done=1;const b=el.nextElementSibling;if(b)b.classList.add('on')}saveCore()},
   expick(el){exPick=el.value;rr()},
   photo(el){const f=el.files&&el.files[0];if(f)estimate(($('#fd-text').value||'').trim(),f)},
   async restore(el){const f=el.files&&el.files[0];if(!f)return;try{const j=JSON.parse(await f.text());if(!j||!j.core||!j.core.profile)throw 0;docs=j;docs.core=Object.assign(clone(CORE0),docs.core);docs.core.profile=Object.assign(clone(CORE0.profile),docs.core.profile);Store.save();render();toast('Backup restored')}catch(e){toast('That file is not a Training Chart backup')}},
-  hkfile(el){const f=el.files&&el.files[0];if(f)importHealth(f)}
+  hkfile(el){const f=el.files&&el.files[0];if(!f)return;if(/\.(json|csv)$/i.test(f.name))importSummary(f);else importHealth(f);el.value=''}
 };
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(el&&acts[el.dataset.act]){e.preventDefault();acts[el.dataset.act](el)}});
 document.addEventListener('change',e=>{const el=e.target.closest('[data-chg]');if(el&&chgs[el.dataset.chg])chgs[el.dataset.chg](el)});
@@ -578,6 +583,27 @@ function HealthParser(cutoff){
     return {days:out,count};
   };
 }
+function mergeHealth(days){const touched={};Object.keys(days).forEach(d=>{const id='health-'+d.slice(0,4);const st=(docs[id]=docs[id]||{d:{}});st.d[d]=Object.assign({},st.d[d]||{},days[d]);touched[id]=1});Object.keys(touched).forEach(id=>Store.save(id))}
+function summaryKey(name){const n=String(name).replace(/\s*\((sum|average|avg|most recent|mostRecent|min|max|minimum|maximum|total)\)\s*$/i,'').trim();
+  if(/resting/i.test(n))return 'rhr';if(/variab|hrv/i.test(n))return 'hrv';if(/^sleep$/i.test(n)||/^sleep (duration|total)$/i.test(n))return 'sleep';if(/weight|body.?mass/i.test(n))return 'weight';if(/^steps?( count)?$/i.test(n)||/^step.?count$/i.test(n))return 'steps';return null}
+function summaryVal(k,v){v=parseFloat(v);if(!isFinite(v))return null;
+  if(k==='sleep'){const h=v>1000?v/3600:v>24?v/60:v;return h>=3&&h<=16?Math.round(h*10)/10:null}
+  if(k==='weight')return v>20&&v<250?Math.round(v*10)/10:null;
+  if(k==='rhr')return v>25&&v<130?Math.round(v):null;
+  if(k==='hrv')return v>3&&v<300?Math.round(v):null;
+  return Math.round(v)}
+function parseSummary(text,isJson){const out={},put=(d,k,v)=>{if(!/^\d{4}-\d{2}-\d{2}/.test(d||''))return;const val=summaryVal(k,v);if(val==null)return;(out[d.slice(0,10)]=out[d.slice(0,10)]||{})[k]=val};
+  if(isJson){let j=JSON.parse(text);if(!Array.isArray(j))j=j.data||j.days||j.rows||[];j.forEach(r=>{const vals=r.values||r,meta=r.metadata||{};for(const id in vals){if(id==='date'||id==='metadata'||id==='values')continue;const k=summaryKey(meta[id]&&meta[id].displayName||id.replace(/_/g,' '));if(k)put(r.date||r.Date,k,vals[id])}})}
+  else{const lines=text.split(/\r?\n/).filter(l=>l.trim());const split=l=>{const o=[];let c='',q=false;for(const ch of l){if(ch==='"')q=!q;else if(ch===','&&!q){o.push(c);c=''}else c+=ch}o.push(c);return o};
+    const head=split(lines[0]).map(h=>h.trim()),di=head.findIndex(h=>/^date$/i.test(h));if(di<0)throw new Error('No Date column found.');const keys=head.map(summaryKey);
+    lines.slice(1).forEach(l=>{const c=split(l);keys.forEach((k,i)=>{if(k&&c[i]!==undefined&&c[i]!=='')put(c[di],k,c[i])})})}
+  return out}
+async function importSummary(file){const say=m=>{importMsg=m;const el=$('#hk-msg');if(el)el.textContent=m};
+  try{const days=parseSummary(await file.text(),/\.json$/i.test(file.name)),dates=Object.keys(days).sort();
+    if(!dates.length)throw new Error('No usable days found. The file needs a date and at least one of sleep, resting heart rate, HRV, weight or steps.');
+    mergeHealth(days);const has=k=>dates.filter(d=>days[d][k]!=null).length;
+    say('Imported '+dates.length+' days through '+nice(dates[dates.length-1])+': sleep '+has('sleep')+', resting HR '+has('rhr')+', HRV '+has('hrv')+', weight '+has('weight')+', steps '+has('steps')+'.');toast('Summary imported');if(tab==='today')rr();else soft();
+  }catch(e){say('Import failed: '+(e&&e.message||'could not read that file'))}}
 async function importHealth(file){
   const say=m=>{importMsg=m;const el=$('#hk-msg');if(el)el.textContent=m};
   const parser=new HealthParser(addD(today(),-400)),dec=new TextDecoder();let read=0,found=false,err=null;
@@ -596,8 +622,7 @@ async function importHealth(file){
       if(err)throw err;say('Reading… '+Math.round(read/file.size*100)+'%');await new Promise(r=>setTimeout(r,0))}
     const res=parser.result(),dates=Object.keys(res.days).sort();
     if(!found||!dates.length)throw new Error('No health records found. Choose the export.zip from the Health app, or the export.xml inside it.');
-    const touched={};dates.forEach(d=>{const id='health-'+d.slice(0,4);(docs[id]=docs[id]||{d:{}}).d[d]=res.days[d];touched[id]=1});
-    Object.keys(touched).forEach(id=>Store.save(id));
+    mergeHealth(res.days);
     say('Imported '+dates.length+' days through '+nice(dates[dates.length-1])+'.');toast('Apple Health data imported');soft();
   }catch(e){say('Import failed: '+(e&&e.message||'could not read that file')+'')}
 }
